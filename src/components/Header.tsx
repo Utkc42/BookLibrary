@@ -34,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({ title, showBackButton }) => {
         </TouchableOpacity>
       )}
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.favoriteCount}>Favorites: {favoriteCount}</Text>
+      <Text style={styles.favoriteCount}>Favorites.: {favoriteCount}</Text>
     </ImageBackground>
   );
 };
