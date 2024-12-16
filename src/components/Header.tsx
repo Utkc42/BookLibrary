@@ -58,7 +58,6 @@ const Header: React.FC<HeaderProps> = ({ title, showBackButton }) => {
             <Text style={styles.title}>{title}</Text>
             {/* Favorieten */}
             <View style={styles.favoritesContainer}>
-                <Ionicons name="heart" size={24} color="purple" />
                 <Text style={styles.favoriteCount}>
                     Favorites: {favoriteCount}
                 </Text>
@@ -87,15 +86,15 @@ const styles = StyleSheet.create({
         top: 40,
     },
     title: {
-        fontSize: 20,
+        fontSize: 30,
         color: 'white',
         fontWeight: 'bold',
-        marginTop: 40,
+        marginTop: 20,
     },
     favoritesContainer: {
         position: 'absolute',
         right: 10,
-        top: 40,
+        top: 30,
         flexDirection: 'row',
         alignItems: 'center',
     },
@@ -104,7 +103,7 @@ const styles = StyleSheet.create({
         right: 10,
         top: 40,
         color: 'white',
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: 'bold',
     },
 });
