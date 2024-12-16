@@ -195,7 +195,7 @@ const NewBook: React.FC = () => {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    resizeMode: 'cover', // Zorgt dat de afbeelding zich volledig uitstrekt
+    resizeMode: 'cover',
   },
   container: {
     flex: 1,

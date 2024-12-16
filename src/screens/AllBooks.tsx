@@ -45,19 +45,19 @@ const AllBooks = () => {
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = (screenWidth - 40) / 2;
 
-  // **1. Ophalen van boeken uit Firestore**
+  // Ophalen van boeken uit Firestore
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'books'), (snapshot) => {
       const booksData = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data()as Omit<Book, 'id'>),
       }));
       setBooks(booksData);
     });
     return () => unsubscribe();
   }, []);
 
-  // **2. Verwijder een boek**
+  // Verwijder een boek
   const handleRemoveBook = async (id: string) => {
     try {
       await deleteDoc(doc(db, 'books', id));
@@ -67,7 +67,7 @@ const AllBooks = () => {
     }
   };
 
-  // **3. Favoriet status wijzigen**
+  // Favoriet status wijzigen
   const toggleFavorite = async (id: string, currentFavorite: boolean) => {
     try {
       const bookRef = doc(db, 'books', id);
@@ -139,7 +139,7 @@ const AllBooks = () => {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
-    resizeMode: 'cover', // Zorg dat de afbeelding wordt geschaald
+    resizeMode: 'cover',
   },
   listContent: {
     paddingHorizontal: 10,

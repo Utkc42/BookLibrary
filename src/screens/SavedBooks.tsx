@@ -30,8 +30,8 @@ const SavedBooks = () => {
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const booksData = snapshot.docs.map((doc) => {
-                const data = doc.data() as Omit<Book, 'id'>; // Data zonder id
-                return { id: doc.id, ...data }; // Voeg id expliciet toe
+                const data = doc.data() as Omit<Book, 'id'>;
+                return { id: doc.id, ...data };
             });
             setSavedBooks(booksData);
         });
@@ -55,7 +55,7 @@ const SavedBooks = () => {
                         <TouchableOpacity
                             style={styles.unsaveButton}
                             onPress={() =>
-                                // Unsave logic (bijv. toggle favorite status)
+                                // Unsave (toggle favorite status)
                                 console.log('Unsaved book:', item.id)
                             }
                         >
