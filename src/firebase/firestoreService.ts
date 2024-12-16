@@ -1,6 +1,6 @@
 import { db } from "./index";
 import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
-import { Book } from "../types/types"; // Zorg dat dit pad klopt
+import { Book } from "../types/types";
 
 // Haal alle boeken op
 export const getAllBooks = async (): Promise<Book[]> => {
