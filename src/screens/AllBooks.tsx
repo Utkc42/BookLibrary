@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   FlatList,
@@ -7,34 +7,76 @@ import {
   StyleSheet,
   Dimensions,
   ImageBackground,
+  Alert,
 } from 'react-native';
-import { useSelector, useDispatch } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { LibraryStackParamList } from '../types/types';
-import { RootState, AppDispatch } from '../redux/store/store';
-import {
-  removeBook,
-  toggleSaved,
-  toggleFavorite,
-} from '../redux/features/books/booksSlice';
 import Card from '../components/Card';
 import { Ionicons } from '@expo/vector-icons';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import {
+  collection,
+  onSnapshot,
+  addDoc,
+  deleteDoc,
+  doc,
+  updateDoc,
+} from 'firebase/firestore';
+import { db } from '../firebase/index';
 
 type NavigationProp = StackNavigationProp<LibraryStackParamList, 'AllBooks'>;
 
+interface Book {
+  id: string;
+  title: string;
+  author: string;
+  genre: string;
+  year: number;
+  description: string;
+  favorite: boolean;
+}
+
 const AllBooks = () => {
   const navigation = useNavigation<NavigationProp>();
-  const books = useSelector((state: RootState) => state.books.books);
-  const savedBooks = useSelector(
-    (state: RootState) => state.books.savedBooks
-  );
-  const dispatch = useDispatch<AppDispatch>();
+  const [books, setBooks] = useState<Book[]>([]);
 
   const screenWidth = Dimensions.get('window').width;
   const cardWidth = (screenWidth - 40) / 2;
+
+  // **1. Ophalen van boeken uit Firestore**
+  useEffect(() => {
+    const unsubscribe = onSnapshot(collection(db, 'books'), (snapshot) => {
+      const booksData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setBooks(booksData);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // **2. Verwijder een boek**
+  const handleRemoveBook = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'books', id));
+    } catch (error) {
+      Alert.alert('Error', 'Failed to delete the book.');
+      console.error(error);
+    }
+  };
+
+  // **3. Favoriet status wijzigen**
+  const toggleFavorite = async (id: string, currentFavorite: boolean) => {
+    try {
+      const bookRef = doc(db, 'books', id);
+      await updateDoc(bookRef, { favorite: !currentFavorite });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update favorite status.');
+      console.error(error);
+    }
+  };
 
   return (
     <ImageBackground
@@ -49,6 +91,7 @@ const AllBooks = () => {
               <Text style={styles.title}>{item.title}</Text>
               <Text style={styles.author}>{item.author}</Text>
               <View style={styles.iconContainer}>
+                {/* Bekijk details */}
                 <TouchableOpacity
                   onPress={() =>
                     navigation.navigate('BookDetails', {
@@ -58,21 +101,10 @@ const AllBooks = () => {
                 >
                   <AntDesign name="eye" size={24} color="black" />
                 </TouchableOpacity>
+
+                {/* Favoriet maken */}
                 <TouchableOpacity
-                  onPress={() => dispatch(toggleSaved(item.id))}
-                >
-                  <Ionicons
-                    name="bookmark"
-                    size={24}
-                    color={
-                      savedBooks.some((book) => book.id === item.id)
-                        ? 'blue'
-                        : 'black'
-                    }
-                  />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => dispatch(toggleFavorite(item.id))}
+                  onPress={() => toggleFavorite(item.id, item.favorite)}
                 >
                   <Ionicons
                     name="heart"
@@ -80,9 +112,9 @@ const AllBooks = () => {
                     color={item.favorite ? 'purple' : 'gray'}
                   />
                 </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => dispatch(removeBook(item.id))}
-                >
+
+                {/* Verwijderen */}
+                <TouchableOpacity onPress={() => handleRemoveBook(item.id)}>
                   <MaterialIcons name="delete" size={24} color="red" />
                 </TouchableOpacity>
               </View>
@@ -93,6 +125,7 @@ const AllBooks = () => {
         numColumns={2}
         contentContainerStyle={styles.listContent}
       />
+      {/* Voeg nieuw boek toe */}
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => navigation.navigate('NewBook')}
