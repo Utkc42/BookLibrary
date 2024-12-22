@@ -33,6 +33,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/index';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { addToSavedBooks } from '../redux/features/books/booksSlice';
 
 type NavigationProp = StackNavigationProp<LibraryStackParamList, 'AllBooks'>;
 
@@ -102,19 +103,29 @@ const AllBooks: React.FC = () => {
             Alert.alert('Error', 'Invalid book ID.');
             return;
         }
-
+    
         if (userType === 'anonymous') {
             dispatch(toggleFavorite(id));
+            const book = sessionBooks.find((b) => b.id === id);
+            if (book && !book.favorite) {
+                dispatch(addToSavedBooks(book));
+            }
         } else {
             try {
                 const bookRef = doc(db, 'books', id);
                 await updateDoc(bookRef, { favorite: !currentFavorite });
+                if (!currentFavorite) {
+                    const book = books.find((b) => b.id === id);
+                    if (book) {
+                        await updateDoc(bookRef, { favorite: true });
+                    }
+                }
             } catch (error) {
                 Alert.alert('Error', 'Failed to update favorite status.');
                 console.error(error);
             }
         }
-    };
+    };    
 
     const displayedBooks = userType === 'anonymous' ? sessionBooks : books;
 

@@ -22,7 +22,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
         } catch (error) {
             Alert.alert(
                 'Error',
-                'Failed to login. Please check your credentials.',
+                'This login does not exist.',
             );
             console.error(error);
         }

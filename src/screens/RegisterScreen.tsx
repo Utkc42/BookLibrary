@@ -39,7 +39,7 @@ const RegisterScreen: React.FC = () => {
 
             if (userCredential.user) {
                 await updateProfile(userCredential.user, { displayName });
-                Alert.alert('Success', 'Account created successfully!');
+                // Alert.alert('Success', 'Account created successfully!');
                 navigation.navigate('Login');
             }
         } catch (error) {

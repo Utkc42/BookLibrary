@@ -11,54 +11,56 @@ import { collection, query, where, onSnapshot, updateDoc, doc } from 'firebase/f
 import { db, auth } from '../firebase/index';
 import Card from '../components/Card';
 import { Ionicons } from '@expo/vector-icons';
-
-interface Book {
-    id: string;
-    title: string;
-    author: string;
-    description: string;
-    genre: string;
-    year: number;
-    favorite: boolean;
-    uid: string; // Gebruiker die het boek heeft toegevoegd
-}
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../redux/store/store';
+import { toggleFavorite, selectSavedBooks } from '../redux/features/books/booksSlice';
+import { Book } from '../types/types';
 
 const SavedBooks = () => {
-    const [savedBooks, setSavedBooks] = useState<Book[]>([]);
+    const userType = useSelector((state: RootState) => state.books.userType);
+    const sessionBooks = useSelector((state: RootState) => selectSavedBooks(state));
+    const [savedBooks, setSavedBooks] = useState(sessionBooks); // Standaard is sessionBooks
+    const dispatch = useDispatch();
 
-    // Ophalen van favoriete boeken van de ingelogde gebruiker
     useEffect(() => {
-        if (!auth.currentUser) {
-            Alert.alert('Error', 'User not authenticated.');
-            return;
+        if (userType === 'authenticated' && auth.currentUser) {
+            const userUid = auth.currentUser.uid;
+            const booksQuery = query(
+                collection(db, 'books'),
+                where('favorite', '==', true),
+                where('uid', '==', userUid)
+            );
+
+            const unsubscribe = onSnapshot(booksQuery, (snapshot) => {
+                const booksData = snapshot.docs.map((doc) => {
+                    const { id, ...data } = doc.data() as Book; // Voorkom dubbele 'id'
+                    return {
+                        id: doc.id, // Gebruik de Firebase-document ID
+                        ...data, // Voeg overige velden toe
+                    };
+                });
+                setSavedBooks(booksData); // Update de staat met de correcte `Book[]`
+            });            
+            
+            
+            return () => unsubscribe();
+        } else {
+            setSavedBooks(sessionBooks); // Bijwerken voor anonieme gebruikers
         }
+    }, [userType, sessionBooks]);
 
-        const userUid = auth.currentUser.uid;
-        const booksQuery = query(
-            collection(db, 'books'),
-            where('favorite', '==', true),
-            where('uid', '==', userUid) // Filter op basis van de huidige gebruiker
-        );
-
-        const unsubscribe = onSnapshot(booksQuery, (snapshot) => {
-            const booksData = snapshot.docs.map((doc) => {
-                const data = doc.data() as Omit<Book, 'id'>;
-                return { id: doc.id, ...data };
-            });
-            setSavedBooks(booksData);
-        });
-        return () => unsubscribe();
-    }, []);
-
-    // Favoriet status toggelen (unsave)
-    const toggleFavorite = async (id: string) => {
-        try {
-            const bookRef = doc(db, 'books', id);
-            await updateDoc(bookRef, { favorite: false });
-            Alert.alert('Success', 'Book removed from favorites.');
-        } catch (error) {
-            Alert.alert('Error', 'Failed to update favorite status.');
-            console.error(error);
+    const handleToggleFavorite = async (id: string) => {
+        if (userType === 'anonymous') {
+            dispatch(toggleFavorite(id));
+        } else {
+            try {
+                const bookRef = doc(db, 'books', id);
+                await updateDoc(bookRef, { favorite: false });
+                Alert.alert('Success', 'Book removed from favorites.');
+            } catch (error) {
+                Alert.alert('Error', 'Failed to update favorite status.');
+                console.error(error);
+            }
         }
     };
 
@@ -76,7 +78,7 @@ const SavedBooks = () => {
                         <Text style={styles.description}>{item.description}</Text>
                         <TouchableOpacity
                             style={styles.unsaveButton}
-                            onPress={() => toggleFavorite(item.id)}
+                            onPress={() => handleToggleFavorite(item.id)}
                         >
                             <Ionicons name="bookmark" size={24} color="blue" />
                         </TouchableOpacity>

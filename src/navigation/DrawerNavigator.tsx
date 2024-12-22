@@ -44,6 +44,7 @@ const DrawerNavigator = () => {
       <Drawer.Screen
         name="LibraryStack"
         component={LibraryStackNavigator}
+        initialParams={{ newBook: undefined }}
         options={{
           title: 'All Books',
           headerShown: false,

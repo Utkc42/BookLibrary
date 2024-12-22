@@ -1,5 +1,5 @@
 export type Book = {
-  id?: string; // Optioneel, Firebase genereert een ID
+  id: string; // Optioneel, Firebase genereert een ID
   title: string;
   author: string;
   description: string;
