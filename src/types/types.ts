@@ -1,5 +1,5 @@
 export type Book = {
-  id?: string; //moet optioneel zijn omdat firebase een id genereert
+  id?: string; // Optioneel, Firebase genereert een ID
   title: string;
   author: string;
   description: string;
@@ -8,10 +8,15 @@ export type Book = {
   favorite: boolean;
 };
 
+export type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined;
+};
+
 export type LibraryStackParamList = {
-  AllBooks: undefined;
+  AllBooks: { newBook?: Book }; // Optioneel, zodat het voor beide situaties werkt
   BookDetails: { book: Book };
-  NewBook: undefined;
+  NewBook: { isAnonymous: boolean };
   SavedBooks: undefined;
   About: undefined;
 };

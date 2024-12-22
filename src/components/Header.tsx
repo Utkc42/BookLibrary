@@ -10,28 +10,40 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { DrawerParamList } from '../types/types';
-import { db } from '../firebase/index';
+import { db, auth } from '../firebase/index';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
 interface HeaderProps {
     title?: string;
     showBackButton?: boolean;
+    localBooks?: { id: string; favorite: boolean }[]; // Voeg localBooks toe als prop
 }
 
-const Header: React.FC<HeaderProps> = ({ title, showBackButton }) => {
+const Header: React.FC<HeaderProps> = ({ title, showBackButton, localBooks = [] }) => {
     const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
     const [favoriteCount, setFavoriteCount] = useState(0);
 
-    // Realtime updates voor het aantal favorieten
     useEffect(() => {
-        const q = query(collection(db, 'books'), where('favorite', '==', true));
+        if (auth.currentUser?.isAnonymous) {
+            // Tel favorieten lokaal
+            const localFavoriteCount = localBooks.filter((book) => book.favorite).length;
+            setFavoriteCount(localFavoriteCount);
+        } else if (auth.currentUser) {
+            // Firestore-query voor ingelogde gebruikers
+            const userUid = auth.currentUser.uid;
+            const favoritesQuery = query(
+                collection(db, 'books'),
+                where('favorite', '==', true),
+                where('uid', '==', userUid)
+            );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setFavoriteCount(snapshot.docs.length); // Aantal favorieten bijwerken
-        });
+            const unsubscribe = onSnapshot(favoritesQuery, (snapshot) => {
+                setFavoriteCount(snapshot.docs.length);
+            });
 
-        return () => unsubscribe(); // Cleanup bij demontage
-    }, []);
+            return () => unsubscribe();
+        }
+    }, [auth.currentUser, localBooks]);
 
     return (
         <ImageBackground

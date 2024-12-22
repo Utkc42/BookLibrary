@@ -13,13 +13,20 @@ import {
 } from 'react-native';
 import { Formik } from 'formik';
 import * as Yup from 'yup';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, collection, getDocs } from 'firebase/firestore';
-import { db } from '../firebase/index';
+import { addDoc, getDocs, collection } from 'firebase/firestore';
+import { db, auth } from '../firebase/index';
+import { LibraryStackParamList, Book } from '../types/types';
+import { StackNavigationProp } from '@react-navigation/stack';
+
+type NavigationProp = StackNavigationProp<LibraryStackParamList, 'NewBook'>;
+type NewBookRouteProp = RouteProp<LibraryStackParamList, 'NewBook'>;
 
 const NewBook: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp>();
+  const route = useRoute<NewBookRouteProp>();
+  const { isAnonymous } = route.params;
 
   const validationSchema = Yup.object().shape({
     title: Yup.string()
@@ -27,56 +34,59 @@ const NewBook: React.FC = () => {
       .required('Title is required'),
     author: Yup.string()
       .min(3, 'Author name must be at least 3 characters')
-      .notRequired(),
+      .required('Author is required'),
     genre: Yup.string().required('Genre is required'),
     year: Yup.number()
       .min(1000, 'Enter a valid year')
       .max(new Date().getFullYear(), 'Year cannot be in the future')
       .required('Year is required'),
-    description: Yup.string()
-      .min(8, 'Description must be at least 8 characters')
-      .required('Description is required'),
+    description: Yup.string().required('Description is required'),
   });
-
-  const checkDuplicateTitle = async (title: string) => {
-    try {
-      const querySnapshot = await getDocs(collection(db, 'books'));
-      return querySnapshot.docs.some((doc) => doc.data().title === title);
-    } catch (error) {
-      console.error('Error checking duplicates: ', error);
-      return false;
-    }
-  };
 
   const handleAddBook = async (values: any) => {
     try {
-      const isDuplicate = await checkDuplicateTitle(values.title);
+        // Maak een nieuw boek object aan zonder het `id` veld
+        const newBook: Omit<Book, 'id'> = {
+            title: values.title,
+            author: values.author,
+            genre: values.genre,
+            year: parseInt(values.year, 10),
+            description: values.description,
+            favorite: false,
+        };
 
-      if (isDuplicate) {
-        Alert.alert(
-          'Duplicate Entry',
-          'A book with this title already exists.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
+        if (auth.currentUser?.isAnonymous) {
+            // Voeg lokaal toe voor anonieme gebruikers
+            const localBook: Book = {
+                ...newBook,
+                id: `local-${Math.random().toString(36).substr(2, 9)}`, // Unieke ID voor lokale boeken
+            };
+            navigation.navigate('AllBooks', { newBook: localBook });
+            Alert.alert('Success', 'Book added locally!');
+            return;
+        }
 
-      await addDoc(collection(db, 'books'), {
-        title: values.title,
-        author: values.author,
-        genre: values.genre,
-        year: parseInt(values.year, 10),
-        description: values.description,
-        favorite: false,
-      });
+        if (!auth.currentUser) {
+            Alert.alert('Error', 'User not authenticated.');
+            return;
+        }
 
-      Alert.alert('Success', 'Book added successfully!');
-      navigation.goBack();
+        // Voeg het boek toe aan Firebase zonder het `id` veld
+        await addDoc(collection(db, 'books'), {
+            ...newBook,
+            uid: auth.currentUser.uid,
+        });
+
+        Alert.alert('Success', 'Book added successfully!');
+        navigation.goBack();
     } catch (error) {
-      Alert.alert('Error', 'Failed to add the book.');
-      console.error('Error adding book: ', error);
+        Alert.alert('Error', 'Failed to add the book.');
+        console.error('Error adding book: ', error);
     }
-  };
+};
+
+
+  
 
   return (
     <ImageBackground
