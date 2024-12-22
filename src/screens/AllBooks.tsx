@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import {
     View,
     FlatList,
@@ -9,8 +9,14 @@ import {
     ImageBackground,
     Alert,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useSelector, useDispatch } from 'react-redux';
+import { RootState } from '../redux/store/store';
+import {
+    removeBook,
+    toggleFavorite,
+    addBook,
+} from '../redux/features/books/booksSlice';
 import { LibraryStackParamList } from '../types/types';
 import Card from '../components/Card';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,122 +27,96 @@ import {
     onSnapshot,
     deleteDoc,
     doc,
-    getDoc,
-    updateDoc,
     query,
     where,
+    updateDoc,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/index';
-
-interface Book {
-    id: string;
-    title: string;
-    author: string;
-    genre: string;
-    year: number;
-    description: string;
-    favorite: boolean;
-    uid: string; // Gebruiker die het boek heeft toegevoegd
-}
+import { StackNavigationProp } from '@react-navigation/stack';
 
 type NavigationProp = StackNavigationProp<LibraryStackParamList, 'AllBooks'>;
 
-type RouteParams = {
-    newBook?: Book;
-};
-
-const AllBooks = () => {
+const AllBooks: React.FC = () => {
     const navigation = useNavigation<NavigationProp>();
-    const route = useRoute();
-    const routeParams = route.params as RouteParams;
+    const route = useRoute<RouteProp<LibraryStackParamList, 'AllBooks'>>(); // Voeg route toe
+    const dispatch = useDispatch();
 
-    const [books, setBooks] = useState<Book[]>([]);
-    const [localBooks, setLocalBooks] = useState<Book[]>([]); // Boeken voor anonieme gebruikers
+    const userType = useSelector((state: RootState) => state.books.userType);
+    const sessionBooks = useSelector((state: RootState) => state.books.sessionBooks);
+
+    const [books, setBooks] = React.useState<any[]>([]);
+
     const screenWidth = Dimensions.get('window').width;
     const cardWidth = (screenWidth - 40) / 2;
 
-    // Ophalen van boeken specifiek voor de ingelogde gebruiker
     useEffect(() => {
-        if (!auth.currentUser || auth.currentUser.isAnonymous) {
-            return;
-        }
+        if (userType === 'authenticated') {
+            const userUid = auth.currentUser?.uid;
+            if (!userUid) return;
 
-        const userUid = auth.currentUser.uid;
-        const booksQuery = query(
-            collection(db, 'books'),
-            where('uid', '==', userUid)
-        );
-
-        const unsubscribe = onSnapshot(booksQuery, (snapshot) => {
-            const booksData = snapshot.docs.map((doc) => ({
-                id: doc.id, // Gebruik het Firebase-document-ID
-                ...(doc.data() as Omit<Book, 'id'>),
-            }));
-            setBooks(booksData);
-        });
-
-        return () => unsubscribe();
-    }, []);
-
-    // Toevoegen van nieuw boek lokaal voor anonieme gebruikers
-    useEffect(() => {
-        if (auth.currentUser?.isAnonymous && routeParams?.newBook) {
-            setLocalBooks((prevBooks) => [...prevBooks, routeParams.newBook!]);
-        }
-    }, [routeParams]);
-
-    // Verwijder een boek
-    const handleRemoveBook = async (id: string) => {
-        try {
-            if (auth.currentUser?.isAnonymous) {
-                setLocalBooks((prevBooks) =>
-                    prevBooks.filter((book) => book.id !== id)
-                );
-                return;
-            }
-
-            await deleteDoc(doc(db, 'books', id));
-            Alert.alert('Success', 'Book deleted successfully.');
-        } catch (error) {
-            Alert.alert('Error', 'Failed to delete the book.');
-            console.error(error);
-        }
-    };
-
-    // Favoriet status wijzigen
-    const toggleFavorite = async (id: string, currentFavorite: boolean) => {
-        if (auth.currentUser?.isAnonymous) {
-            // Werk favorietstatus bij in de lokale state
-            setLocalBooks((prevBooks) =>
-                prevBooks.map((book) =>
-                    book.id === id ? { ...book, favorite: !currentFavorite } : book
-                )
+            const booksQuery = query(
+                collection(db, 'books'),
+                where('uid', '==', userUid)
             );
+
+            const unsubscribe = onSnapshot(booksQuery, (snapshot) => {
+                const booksData = snapshot.docs.map((doc) => ({
+                    id: doc.id,
+                    ...(doc.data() as Omit<any, 'id'>),
+                }));
+                setBooks(booksData);
+            });
+
+            return () => unsubscribe();
+        }
+    }, [userType]);
+
+    useEffect(() => {
+        if (userType === 'anonymous' && route.params?.newBook) {
+            dispatch(addBook(route.params.newBook)); // Voeg toe aan Redux
+            navigation.setParams({ newBook: undefined }); // Reset de parameter
+        }
+    }, [route.params?.newBook]);
+
+    const handleRemoveBook = async (id: string) => {
+        if (!id) {
+            Alert.alert('Error', 'Invalid book ID.');
             return;
         }
 
-        try {
-            // Firebase-logica voor ingelogde gebruikers
-            const bookRef = doc(db, 'books', id);
-            const bookSnap = await getDoc(bookRef);
-
-            if (!bookSnap.exists()) {
-                Alert.alert('Error', 'Book does not exist in Firebase.');
-                return;
+        if (userType === 'anonymous') {
+            dispatch(removeBook(id));
+        } else {
+            try {
+                await deleteDoc(doc(db, 'books', id));
+                Alert.alert('Success', 'Book deleted successfully.');
+            } catch (error) {
+                Alert.alert('Error', 'Failed to delete the book.');
+                console.error(error);
             }
-
-            await updateDoc(bookRef, { favorite: !currentFavorite });
-            Alert.alert('Success', 'Favorite status updated successfully!');
-        } catch (error) {
-            Alert.alert('Error', 'Failed to update favorite status.');
-            console.error(error);
         }
     };
 
-    // Tellen van favorieten voor de Header
-    const favoriteCount = auth.currentUser?.isAnonymous
-        ? localBooks.filter((book) => book.favorite).length
-        : books.filter((book) => book.favorite).length;
+    const handleToggleFavorite = async (id: string, currentFavorite: boolean) => {
+        if (!id) {
+            Alert.alert('Error', 'Invalid book ID.');
+            return;
+        }
+
+        if (userType === 'anonymous') {
+            dispatch(toggleFavorite(id));
+        } else {
+            try {
+                const bookRef = doc(db, 'books', id);
+                await updateDoc(bookRef, { favorite: !currentFavorite });
+            } catch (error) {
+                Alert.alert('Error', 'Failed to update favorite status.');
+                console.error(error);
+            }
+        }
+    };
+
+    const displayedBooks = userType === 'anonymous' ? sessionBooks : books;
 
     return (
         <ImageBackground
@@ -144,14 +124,13 @@ const AllBooks = () => {
             style={styles.background}
         >
             <FlatList
-                data={auth.currentUser?.isAnonymous ? localBooks : books}
+                data={displayedBooks}
                 renderItem={({ item }) => (
                     <View style={[styles.cardContainer, { width: cardWidth }]}>
                         <Card>
                             <Text style={styles.title}>{item.title}</Text>
                             <Text style={styles.author}>{item.author}</Text>
                             <View style={styles.iconContainer}>
-                                {/* Bekijk details */}
                                 <TouchableOpacity
                                     onPress={() =>
                                         navigation.navigate('BookDetails', {
@@ -165,25 +144,17 @@ const AllBooks = () => {
                                         color="black"
                                     />
                                 </TouchableOpacity>
-
-                                {/* Favoriet maken */}
                                 <TouchableOpacity
-                                    onPress={() =>
-                                        toggleFavorite(item.id, item.favorite)
-                                    }
+                                    onPress={() => handleToggleFavorite(item.id!, item.favorite)}
                                 >
                                     <Ionicons
                                         name="heart"
                                         size={24}
-                                        color={
-                                            item.favorite ? 'purple' : 'gray'
-                                        }
+                                        color={item.favorite ? 'purple' : 'gray'}
                                     />
                                 </TouchableOpacity>
-
-                                {/* Verwijderen */}
                                 <TouchableOpacity
-                                    onPress={() => handleRemoveBook(item.id)}
+                                    onPress={() => handleRemoveBook(item.id!)}
                                 >
                                     <MaterialIcons
                                         name="delete"
@@ -195,16 +166,17 @@ const AllBooks = () => {
                         </Card>
                     </View>
                 )}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) =>
+                    item.id ?? `local-${Math.random().toString(36).substring(2, 9)}`
+                }
                 numColumns={2}
                 contentContainerStyle={styles.listContent}
             />
-            {/* Voeg nieuw boek toe */}
             <TouchableOpacity
                 style={styles.addButton}
                 onPress={() =>
                     navigation.navigate('NewBook', {
-                        isAnonymous: !!auth.currentUser?.isAnonymous,
+                        isAnonymous: userType === 'anonymous',
                     })
                 }
             >

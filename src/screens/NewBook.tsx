@@ -15,16 +15,19 @@ import { Formik } from 'formik';
 import * as Yup from 'yup';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { addDoc, getDocs, collection } from 'firebase/firestore';
+import { addDoc, collection } from 'firebase/firestore';
 import { db, auth } from '../firebase/index';
 import { LibraryStackParamList, Book } from '../types/types';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useDispatch } from 'react-redux';
+import { addBook } from '../redux/features/books/booksSlice';
 
 type NavigationProp = StackNavigationProp<LibraryStackParamList, 'NewBook'>;
 type NewBookRouteProp = RouteProp<LibraryStackParamList, 'NewBook'>;
 
 const NewBook: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const dispatch = useDispatch();
   const route = useRoute<NewBookRouteProp>();
   const { isAnonymous } = route.params;
 
@@ -45,48 +48,43 @@ const NewBook: React.FC = () => {
 
   const handleAddBook = async (values: any) => {
     try {
-        // Maak een nieuw boek object aan zonder het `id` veld
-        const newBook: Omit<Book, 'id'> = {
-            title: values.title,
-            author: values.author,
-            genre: values.genre,
-            year: parseInt(values.year, 10),
-            description: values.description,
-            favorite: false,
+      const newBook: Book = {
+        id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        title: values.title,
+        author: values.author,
+        genre: values.genre,
+        year: parseInt(values.year, 10),
+        description: values.description,
+        favorite: false,
+      };
+
+      if (isAnonymous) {
+        const localBook: Book = {
+          ...newBook,
+          id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         };
+        dispatch(addBook(localBook)); // Voeg het boek toe aan Redux
+        navigation.navigate('AllBooks', { newBook: localBook }); // Geef de parameter mee
+        return;
+      }
+      
 
-        if (auth.currentUser?.isAnonymous) {
-            // Voeg lokaal toe voor anonieme gebruikers
-            const localBook: Book = {
-                ...newBook,
-                id: `local-${Math.random().toString(36).substr(2, 9)}`, // Unieke ID voor lokale boeken
-            };
-            navigation.navigate('AllBooks', { newBook: localBook });
-            Alert.alert('Success', 'Book added locally!');
-            return;
-        }
+      if (!auth.currentUser) {
+        Alert.alert('Error', 'User not authenticated.');
+        return;
+      }
 
-        if (!auth.currentUser) {
-            Alert.alert('Error', 'User not authenticated.');
-            return;
-        }
-
-        // Voeg het boek toe aan Firebase zonder het `id` veld
-        await addDoc(collection(db, 'books'), {
-            ...newBook,
-            uid: auth.currentUser.uid,
-        });
-
-        Alert.alert('Success', 'Book added successfully!');
-        navigation.goBack();
+      await addDoc(collection(db, 'books'), {
+        ...newBook,
+        uid: auth.currentUser.uid,
+      });
+      Alert.alert('Success', 'Book added successfully!');
+      navigation.goBack();
     } catch (error) {
-        Alert.alert('Error', 'Failed to add the book.');
-        console.error('Error adding book: ', error);
+      Alert.alert('Error', 'Failed to add the book.');
+      console.error('Error adding book: ', error);
     }
-};
-
-
-  
+  };
 
   return (
     <ImageBackground
@@ -103,7 +101,6 @@ const NewBook: React.FC = () => {
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.screenTitle}>Add New Book</Text>
-
             <Formik
               initialValues={{
                 title: '',
@@ -124,68 +121,28 @@ const NewBook: React.FC = () => {
                 setFieldTouched,
               }) => (
                 <View style={styles.formContainer}>
-                  <Text style={styles.label}>Title</Text>
-                  <TextInput
-                    placeholder="Enter the book title"
-                    onChangeText={handleChange('title')}
-                    onBlur={() => setFieldTouched('title')}
-                    value={values.title}
-                    style={styles.input}
-                  />
-                  {errors.title && touched.title && (
-                    <Text style={styles.error}>{errors.title}</Text>
-                  )}
-
-                  <Text style={styles.label}>Author</Text>
-                  <TextInput
-                    placeholder="Enter the author's name"
-                    onChangeText={handleChange('author')}
-                    onBlur={() => setFieldTouched('author')}
-                    value={values.author}
-                    style={styles.input}
-                  />
-                  {errors.author && touched.author && (
-                    <Text style={styles.error}>{errors.author}</Text>
-                  )}
-
-                  <Text style={styles.label}>Genre</Text>
-                  <TextInput
-                    placeholder="Enter the genre"
-                    onChangeText={handleChange('genre')}
-                    onBlur={() => setFieldTouched('genre')}
-                    value={values.genre}
-                    style={styles.input}
-                  />
-                  {errors.genre && touched.genre && (
-                    <Text style={styles.error}>{errors.genre}</Text>
-                  )}
-
-                  <Text style={styles.label}>Publication Year</Text>
-                  <TextInput
-                    placeholder="Enter the publication year"
-                    onChangeText={handleChange('year')}
-                    onBlur={() => setFieldTouched('year')}
-                    value={values.year}
-                    keyboardType="numeric"
-                    style={styles.input}
-                  />
-                  {errors.year && touched.year && (
-                    <Text style={styles.error}>{errors.year}</Text>
-                  )}
-
-                  <Text style={styles.label}>Description</Text>
-                  <TextInput
-                    placeholder="Enter a short description"
-                    onChangeText={handleChange('description')}
-                    onBlur={() => setFieldTouched('description')}
-                    value={values.description}
-                    style={styles.input}
-                    multiline
-                  />
-                  {errors.description && touched.description && (
-                    <Text style={styles.error}>{errors.description}</Text>
-                  )}
-
+                  {Object.entries(values).map(([field, value]) => (
+                    <View key={field}>
+                      <Text style={styles.label}>
+                        {field.charAt(0).toUpperCase() + field.slice(1)}
+                      </Text>
+                      <TextInput
+                        placeholder={`Enter the ${field}`}
+                        onChangeText={handleChange(field)}
+                        onBlur={() => setFieldTouched(field)}
+                        value={value as string}
+                        style={styles.input}
+                        keyboardType={field === 'year' ? 'numeric' : 'default'}
+                        multiline={field === 'description'}
+                      />
+                      {errors[field as keyof typeof errors] &&
+                        touched[field as keyof typeof touched] && (
+                          <Text style={styles.error}>
+                            {errors[field as keyof typeof errors]}
+                          </Text>
+                        )}
+                    </View>
+                  ))}
                   <TouchableOpacity
                     style={styles.submitButton}
                     onPress={() => handleSubmit()}
@@ -203,14 +160,8 @@ const NewBook: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  background: {
-    flex: 1,
-    resizeMode: 'cover',
-  },
-  container: {
-    flex: 1,
-    marginTop: 25,
-  },
+  background: { flex: 1, resizeMode: 'cover' },
+  container: { flex: 1, marginTop: 25 },
   backButton: {
     width: 40,
     height: 40,
@@ -228,17 +179,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginVertical: 20,
   },
-  formContainer: {
-    flex: 1,
-    padding: 20,
-    justifyContent: 'flex-start',
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 5,
-  },
+  formContainer: { flex: 1, padding: 20, justifyContent: 'flex-start' },
+  label: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 5 },
   input: {
     borderWidth: 1,
     borderColor: '#007bff',
@@ -247,12 +189,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     backgroundColor: '#fff',
   },
-  error: {
-    color: 'red',
-    marginTop: -10,
-    marginBottom: 10,
-    fontSize: 14,
-  },
+  error: { color: 'red', marginTop: -10, marginBottom: 10, fontSize: 14 },
   submitButton: {
     backgroundColor: 'green',
     padding: 15,
@@ -260,11 +197,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
-  submitButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  submitButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });
 
 export default NewBook;

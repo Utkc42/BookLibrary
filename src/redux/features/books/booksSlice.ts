@@ -1,64 +1,60 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { Book } from '../../../types/types';
+
 interface BooksState {
+  userType: 'anonymous' | 'authenticated'; // Nieuw toegevoegd
   books: Book[];
-  savedBooks: Book[];
+  sessionBooks: Book[]; // Voor anonieme gebruikers
 }
 
 const initialState: BooksState = {
-  books: [
-    {
-      id: '1',
-      title: 'To Kill a Mockingbird',
-      author: 'Harper Lee',
-      genre: 'Fiction',
-      year: 1960,
-      description: 'A timeless masterpiece...',
-      favorite: false,
-    },
-    {
-      id: '2',
-      title: 'The Diary of a Young Girl',
-      author: 'Anne Frank',
-      genre: 'Memoir / Biography',
-      year: 1947,
-      description: 'A gripping diary...',
-      favorite: false,
-    },
-  ],
-  savedBooks: [],
+  userType: 'authenticated', // Standaard voor normale gebruikers
+  books: [], // Lege array voor boeken in Firebase
+  sessionBooks: [], // Lege array voor anonieme gebruikers
 };
 
 const booksSlice = createSlice({
   name: 'books',
   initialState,
   reducers: {
+    setUserType: (state, action: PayloadAction<'anonymous' | 'authenticated'>) => {
+      state.userType = action.payload;
+    },
     addBook: (state, action: PayloadAction<Book>) => {
-      state.books.push(action.payload);
+      console.log('Current sessionBooks:', state.sessionBooks);
+      console.log('Adding book:', action.payload);
+    
+      if (state.userType === 'anonymous') {
+        // Controleer of sessionBooks bestaat en een array is
+        state.sessionBooks = state.sessionBooks || [];
+        const exists = state.sessionBooks.some((book) => book.id === action.payload.id);
+        if (!exists) {
+          state.sessionBooks.push(action.payload);
+          console.log('Book added to sessionBooks:', action.payload);
+        } else {
+          console.log('Book already exists in sessionBooks');
+        }
+      } else {
+        state.books.push(action.payload);
+        console.log('Book added to books:', action.payload);
+      }
+    },        
+    removeBook: (state, action: PayloadAction<string>) => {
+      if (state.userType === 'anonymous') {
+        state.sessionBooks = state.sessionBooks.filter((book) => book.id !== action.payload);
+      } else {
+        state.books = state.books.filter((book) => book.id !== action.payload);
+      }
     },
     toggleFavorite: (state, action: PayloadAction<string>) => {
-      const book = state.books.find((b) => b.id === action.payload);
+      const bookList = state.userType === 'anonymous' ? state.sessionBooks : state.books;
+      const book = bookList.find((b) => b.id === action.payload);
       if (book) {
-        book.favorite = !book.favorite; // Wissel de 'favorite'-status
+        book.favorite = !book.favorite;
       }
-    },
-    toggleSaved: (state, action: PayloadAction<string>) => {
-      const book = state.books.find((b) => b.id === action.payload);
-      if (book) {
-        const isSaved = state.savedBooks.some((b) => b.id === book.id);
-        if (isSaved) {
-          state.savedBooks = state.savedBooks.filter((b) => b.id !== book.id);
-        } else {
-          state.savedBooks.push(book);
-        }
-      }
-    },
-    removeBook: (state, action: PayloadAction<string>) => {
-      state.books = state.books.filter((book) => book.id !== action.payload);
-      state.savedBooks = state.savedBooks.filter((book) => book.id !== action.payload);
     },
   },
 });
 
-export const { addBook, toggleSaved, toggleFavorite, removeBook } = booksSlice.actions;
+export const { setUserType, addBook, removeBook, toggleFavorite } = booksSlice.actions;
 export default booksSlice.reducer;
