@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, StyleSheet, ImageBackground } from 'react-native';
-import Card from '../components/Card';
 import { LibraryStackParamList } from '../types/types';
 import { RouteProp } from '@react-navigation/native';
 
@@ -18,26 +17,31 @@ const BookDetails: React.FC<BookDetailsProps> = ({ route }) => {
       source={require('../assets/images/BookDetailsBackground.jpg')}
       style={styles.background}
     >
-    <View style={styles.container}>
-      <View style={styles.content}>
-        <Card>
-          <Text style={styles.label}>Title</Text>
-          <Text style={styles.text}>{book.title}</Text>
+      <View style={styles.container}>
+        <View style={styles.card}>
+          <Text style={styles.title}>{book.title}</Text>
 
-          <Text style={styles.label}>Author</Text>
-          <Text style={styles.text}>{book.author}</Text>
+          <View style={styles.detailContainer}>
+            <Text style={styles.label}>Author:</Text>
+            <Text style={styles.text}>{book.author}</Text>
+          </View>
 
-          <Text style={styles.label}>Genre</Text>
-          <Text style={styles.text}>{book.genre}</Text>
+          <View style={styles.detailContainer}>
+            <Text style={styles.label}>Genre:</Text>
+            <Text style={styles.text}>{book.genre}</Text>
+          </View>
 
-          <Text style={styles.label}>Publication Year</Text>
-          <Text style={styles.text}>{book.year}</Text>
+          <View style={styles.detailContainer}>
+            <Text style={styles.label}>Publication Year:</Text>
+            <Text style={styles.text}>{book.year}</Text>
+          </View>
 
-          <Text style={styles.label}>Description</Text>
-          <Text style={styles.text}>{book.description}</Text>
-        </Card>
+          <View style={styles.detailContainer}>
+            <Text style={styles.label}>Description:</Text>
+            <Text style={styles.text}>{book.description}</Text>
+          </View>
+        </View>
       </View>
-    </View>
     </ImageBackground>
   );
 };
@@ -49,26 +53,41 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    marginTop: 25,
-  },
-  content: {
-    padding: 20,
-    marginTop: 10,
+    justifyContent: 'center',
     alignItems: 'center',
+    padding: 20,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 25,
+    width: '90%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 5,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
+    marginBottom: 20,
+  },
+  detailContainer: {
+    marginBottom: 15,
   },
   label: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#007bff',
-    marginTop: 15,
-    marginBottom: 5,
-    textAlign: 'center',
+    color: '#406E8E',
   },
   text: {
-    fontSize: 16,
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 15,
+    fontSize: 18,
+    color: '#555',
+    marginTop: 5,
+    lineHeight: 24,
   },
 });
 

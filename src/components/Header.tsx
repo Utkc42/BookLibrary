@@ -10,8 +10,11 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerNavigationProp } from '@react-navigation/drawer';
 import { DrawerParamList } from '../types/types';
-import { db } from '../firebase/index';
+import { db, auth } from '../firebase/index';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { useSelector } from 'react-redux';
+import { selectFavoritesCount, selectSavedBooks } from '../redux/features/books/booksSlice';
+import { RootState } from '../redux/store/store';
 
 interface HeaderProps {
     title?: string;
@@ -20,18 +23,32 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ title, showBackButton }) => {
     const navigation = useNavigation<DrawerNavigationProp<DrawerParamList>>();
-    const [favoriteCount, setFavoriteCount] = useState(0);
+    const [firebaseFavoriteCount, setFirebaseFavoriteCount] = useState(0);
 
-    // Realtime updates voor het aantal favorieten
+    // Haal het aantal favorieten op voor anonieme gebruikers uit Redux
+    const anonymousFavoriteCount = useSelector(selectFavoritesCount);
+    const userType = useSelector((state: RootState) => state.books.userType);
+
     useEffect(() => {
-        const q = query(collection(db, 'books'), where('favorite', '==', true));
+        if (auth.currentUser && userType === 'authenticated') {
+            // Firestore-query voor ingelogde gebruikers
+            const userUid = auth.currentUser.uid;
+            const favoritesQuery = query(
+                collection(db, 'books'),
+                where('favorite', '==', true),
+                where('uid', '==', userUid),
+            );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setFavoriteCount(snapshot.docs.length); // Aantal favorieten bijwerken
-        });
+            const unsubscribe = onSnapshot(favoritesQuery, (snapshot) => {
+                setFirebaseFavoriteCount(snapshot.docs.length);
+            });
 
-        return () => unsubscribe(); // Cleanup bij demontage
-    }, []);
+            return () => unsubscribe();
+        }
+    }, [auth.currentUser, userType]);
+
+    const favoriteCount =
+        userType === 'anonymous' ? anonymousFavoriteCount : firebaseFavoriteCount;
 
     return (
         <ImageBackground
