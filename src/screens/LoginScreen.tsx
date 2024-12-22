@@ -18,7 +18,7 @@ const LoginScreen: React.FC = ({ navigation }: any) => {
     const handleLogin = async () => {
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            Alert.alert('Success', 'Logged in successfully!');
+            //Alert.alert('Success', 'Logged in successfully!');
         } catch (error) {
             Alert.alert(
                 'Error',
