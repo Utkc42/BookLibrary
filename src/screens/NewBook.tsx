@@ -21,6 +21,7 @@ import { LibraryStackParamList, Book } from '../types/types';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useDispatch } from 'react-redux';
 import { addBook } from '../redux/features/books/booksSlice';
+import { store } from '../redux/store/store';
 
 type NavigationProp = StackNavigationProp<LibraryStackParamList, 'NewBook'>;
 type NewBookRouteProp = RouteProp<LibraryStackParamList, 'NewBook'>;
@@ -58,12 +59,18 @@ const NewBook: React.FC = () => {
             };
 
             if (isAnonymous) {
+                const state = store.getState(); // Haal de huidige Redux-state op
+                if (state.books.sessionBooks.length >= 1) {
+                    Alert.alert('Limit reached for anonymous users', 'You must register to fully enjoy the app!');
+                    return; // Voeg geen boek toe
+                }
+    
                 const localBook: Book = {
                     ...newBook,
                     id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
                 };
-                dispatch(addBook(localBook)); // Voeg het boek toe aan Redux
-                navigation.navigate('AllBooks', { newBook: localBook }); // Geef de parameter mee
+                dispatch(addBook(localBook)); // Voeg toe aan Redux
+                navigation.navigate('AllBooks', { newBook: localBook }); // Stuur de parameter
                 return;
             }
 
